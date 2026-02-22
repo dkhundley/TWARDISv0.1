@@ -18,44 +18,45 @@ As you can see in the author's original intro, we're working with Meta's SAM 2 m
 A quick note about the usage of the SAM 2 code: some of this code **requires** that you have already cloned Meta's SAM 2 model, as this code relies on that repo to run some stuff in this repo. You can find the code you need to clone at this link: https://github.com/facebookresearch/sam2.
 
 ## Python Dependencies
-Throughout this repo, we make use of a handful of Python libraries. I grouped them below by purpose so it is easier to understand *why* each one exists in the pipeline.
+If you're new to programming, think of Python libraries as "toolboxes" that each do one kind of job. You do **not** need to master all of these. Most of this repo is built from a small core set, and the rest are helper tools.
 
-### 1) Core deep learning + segmentation
-- `torch` (PyTorch): The main deep learning engine used to run neural network models on CPU/GPU.
-- `sam2` (Meta Segment Anything 2 codebase): The segmentation model framework used throughout this repo for object/mask segmentation in images and videos.
-- `torchvision`: Companion library to PyTorch. We use it for model architectures (like ViT) and image preprocessing transforms.
+### 1) AI model + segmentation (the "find the worm/region" tools)
+- `torch` (PyTorch): Runs the deep-learning models.
+- `sam2`: Meta's Segment Anything 2 code used to create masks from click prompts.
+- `torchvision`: Helper package used with PyTorch for model definitions and image transforms.
 
-### 2) Image/video I/O + visualization
-- `cv2` (OpenCV): General-purpose computer vision toolkit for reading videos, writing frames, resizing/cropping images, contours, connected components, etc.
-- `PIL` (Pillow): Lightweight image loading/saving utility, especially helpful for model input/output handling.
-- `matplotlib`: Plotting and visual debugging (for example, overlaying prompts/masks, saving QC figures).
-- `tifffile`: TIFF-specific reading utilities (important because microscopy workflows often use TIFF stacks / 16-bit TIFFs).
+### 2) Working with images and videos
+- `cv2` (OpenCV): Reads videos, writes frame images, resizes/crops, and does basic image operations.
+- `PIL` (Pillow): Simple image loading/saving utilities.
+- `tifffile`: Reads TIFF microscopy files (including high bit-depth TIFFs).
+- `matplotlib`: Makes plots and visual overlays so you can check whether segmentation looks right.
 
-### 3) Numerical analysis + scientific processing
-- `numpy`: The core numerical array library used everywhere (masks, coordinates, math, data conversion).
-- `scipy` (`ndimage`, `signal`, `interpolate`, etc.): Scientific utilities for things like morphology helpers, smoothing, frequency analysis, and interpolation.
-- `skimage` (scikit-image): Image-analysis toolkit used for things like skeletonization, morphology, and graph/path operations.
-- `networkx`: Graph toolkit used in advanced skeleton gap-closing/path-finding steps.
+### 3) Scientific math and image analysis
+- `numpy`: Core array math (used almost everywhere).
+- `scipy`: Signal/image processing helpers (smoothing, interpolation, distance transforms, etc.).
+- `skimage` (scikit-image): Morphology/skeleton tools for shape analysis.
+- `networkx`: Graph/pathfinding utilities used in advanced skeleton cleanup steps.
 
-### 4) Data storage + tables
-- `h5py`: Reads/writes HDF5 files (`.h5`) for segmentation masks and analysis outputs.
-- `pandas`: Tabular data handling for final CSV-style outputs and feature tables.
-- `pickle`: Python-native object serialization used for intermediate artifacts.
-- `json`: Stores/loads prompt metadata and config-like data.
+### 4) Saving outputs and making tables
+- `h5py`: Saves/loads large mask data in `.h5` format.
+- `pandas`: Builds and exports tables (usually CSV-like outputs).
+- `pickle`: Saves intermediate Python objects between steps.
+- `json`: Stores prompt metadata and other lightweight config data.
 
-### 5) Pipeline helpers (quality-of-life)
-- `tqdm`: Progress bars (very handy for long jobs so you can see if scripts are alive).
-- `multiprocessing`: Parallel processing so multi-core CPUs can speed up frame-heavy workloads.
-- `glob`: Easy filename pattern matching (e.g., “all JPGs in a folder”).
-- `pathlib`: Cleaner, safer path handling in Python.
-- `re`: Regex (pattern matching in filenames/strings).
+### 5) Workflow helpers (convenience tools)
+- `tqdm`: Progress bars so long-running scripts show activity.
+- `multiprocessing`: Uses multiple CPU cores to speed up heavy jobs.
+- `glob`, `pathlib`, `re`: File searching, cleaner path handling, and filename pattern matching.
 
-### 6) Standard library utilities used a lot
-- `os`, `sys`, `shutil`: File/folder operations and system path setup.
-- `time`, `random`: Timing controls and random selection of unprocessed files.
-- `copy`, `gc`, `traceback`, `collections`: Data copying, memory cleanup, error diagnostics, and helper data structures.
+### 6) Python built-ins you'll see often
+- `os`, `sys`, `shutil`: File system operations and path setup.
+- `time`, `random`: Timing and random selection utilities.
+- `copy`, `gc`, `traceback`, `collections`: Object copying, memory cleanup, error tracing, and helper data structures.
 
-If you're totally new to this stack, the practical “must understand first” list is: `numpy`, `cv2`, `torch`, `sam2`, `pandas`, and `h5py`. Everything else is mostly support tooling around those core pieces.
+### If your friend only learns 6 things first
+Start here: `numpy`, `cv2`, `torch`, `sam2`, `pandas`, and `h5py`.
+
+Everything else is useful support, but those six explain most of what the pipeline is doing.
 
 
 ## About the Code

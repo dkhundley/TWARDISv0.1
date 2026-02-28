@@ -1,23 +1,89 @@
 import os
 import sys
 import random
-sys.path.append("PATH_TO_CLONED_REPO/segment-anything-2")
 from PIL import Image
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import cv2
 import h5py
-torch.autocast(device_type="cuda", dtype=torch.bfloat16).__enter__()
-if torch.cuda.get_device_properties(0).major >= 8:
-    # turn on tfloat32 for Ampere GPUs
-    torch.backends.cuda.matmul.allow_tf32 = True
-    torch.backends.cudnn.allow_tf32 = True
+from pathlib import Path
+from hydra.errors import MissingConfigException
+from hydra.utils import instantiate
+from omegaconf import OmegaConf
+
+
+def get_compute_device():
+    if torch.cuda.is_available():
+        return "cuda"
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
+device = get_compute_device()
+if device == "cuda":
+    torch.autocast(device_type="cuda", dtype=torch.bfloat16).__enter__()
+    if torch.cuda.get_device_properties(0).major >= 8:
+        torch.backends.cuda.matmul.allow_tf32 = True
+        torch.backends.cudnn.allow_tf32 = True
 
 from sam2.build_sam import build_sam2_video_predictor
-sam2_checkpoint = "./segment-anything-2/checkpoints/sam2_hiera_large.pt" #path to the checkpoint file
-model_cfg = "sam2_hiera_l.yaml" #path to the model config file
-predictor = build_sam2_video_predictor(model_cfg, sam2_checkpoint)
+
+
+def build_sam2_video_predictor_from_local_yaml(config_path, ckpt_path, device="cuda", mode="eval"):
+    cfg = OmegaConf.load(config_path)
+    cfg.model._target_ = "sam2.sam2_video_predictor.SAM2VideoPredictor"
+    OmegaConf.update(cfg, "model.sam_mask_decoder_extra_args.dynamic_multimask_via_stability", True)
+    OmegaConf.update(cfg, "model.sam_mask_decoder_extra_args.dynamic_multimask_stability_delta", 0.05)
+    OmegaConf.update(cfg, "model.sam_mask_decoder_extra_args.dynamic_multimask_stability_thresh", 0.98)
+    OmegaConf.update(cfg, "model.binarize_mask_from_pts_for_mem_enc", True)
+    OmegaConf.update(cfg, "model.fill_hole_area", 8)
+
+    model = instantiate(cfg.model, _recursive_=True)
+    state_dict = torch.load(ckpt_path, map_location="cpu", weights_only=True)["model"]
+    missing_keys, unexpected_keys = model.load_state_dict(state_dict)
+    if missing_keys or unexpected_keys:
+        raise RuntimeError(
+            f"Checkpoint load mismatch. Missing: {missing_keys}, Unexpected: {unexpected_keys}"
+        )
+    model = model.to(device)
+    if mode == "eval":
+        model.eval()
+    return model
+
+
+project_root = Path(__file__).resolve().parents[1]
+models_dir = project_root / "models"
+
+if (models_dir / "sam2_hiera_large.pt").exists():
+    sam2_checkpoint = str(models_dir / "sam2_hiera_large.pt")
+    model_cfg = "sam2_hiera_l.yaml"
+elif (models_dir / "sam2.1_hiera_large.pt").exists():
+    sam2_checkpoint = str(models_dir / "sam2.1_hiera_large.pt")
+    model_cfg = "sam2.1_hiera_l.yaml"
+else:
+    raise FileNotFoundError(
+        f"No large SAM checkpoint found in {models_dir}. Expected sam2_hiera_large.pt or sam2.1_hiera_large.pt"
+    )
+
+hydra_overrides_extra = [f"hydra.searchpath=[file://{models_dir.resolve().as_posix()}]"]
+try:
+    predictor = build_sam2_video_predictor(
+        model_cfg,
+        sam2_checkpoint,
+        device=device,
+        hydra_overrides_extra=hydra_overrides_extra,
+    )
+except MissingConfigException:
+    local_cfg_path = str(models_dir / model_cfg)
+    predictor = build_sam2_video_predictor_from_local_yaml(
+        config_path=local_cfg_path,
+        ckpt_path=sam2_checkpoint,
+        device=device,
+    )
+
+print(f"Using compute device: {device}")
 
 #region [functions]
 
@@ -134,20 +200,23 @@ def create_mask_video(image_dir, masks_dict, output_path, fps=10, alpha=0.99):
     out.release()
     print(f"Video saved to {output_path}")
 
-def save_cleaned_segments_to_h5(cleaned_segments, filename):
+def save_cleaned_segments_to_h5(cleaned_segments, filename, output_dir):
+    if not cleaned_segments:
+        raise ValueError("No segmentation masks were generated; nothing to save.")
+
     base_name = os.path.basename(filename)
-    name_without_ext = os.path.splitext(base_name)[0]
-    output_filename = f"PATH_TO_OUTPUT_DIR/{name_without_ext}_headsegmentation.h5"
+    name_without_ext = base_name if os.path.isdir(filename) else os.path.splitext(base_name)[0]
+    output_filename = os.path.join(output_dir, f"{name_without_ext}_headsegmentation.h5")
     os.makedirs(os.path.dirname(output_filename), exist_ok=True)
 
     with h5py.File(output_filename, 'w') as f:
         num_frames = len(cleaned_segments)
         f.attrs['num_frames'] = num_frames
-        f.attrs['object_ids'] = list(cleaned_segments[0].keys())
+        first_frame = next(iter(cleaned_segments.keys()))
+        f.attrs['object_ids'] = list(cleaned_segments[first_frame].keys())
 
         masks_group = f.create_group('masks')
 
-        first_frame = list(cleaned_segments.keys())[0]
         first_obj = list(cleaned_segments[first_frame].keys())[0]
         mask_shape = cleaned_segments[first_frame][first_obj].shape
 
@@ -225,8 +294,15 @@ def compare_cleaned_segments(original, loaded):
 #endregion [functions]
 
 
-jpg_video_dir = 'PATH_TO_VIDEO_DIR'
-head_segmentation_dir = 'OUTPUT_PATH_TO_HEAD_SEGMENTATION_DIR'
+ria_base_dir = project_root / "images/processed-files/RIA_calcium_imaging"
+jpg_video_dir = ria_base_dir / "crop_outputs"
+head_segmentation_dir = ria_base_dir / "head_segmentation_outputs"
+head_segmentation_dir.mkdir(parents=True, exist_ok=True)
+
+if not jpg_video_dir.exists():
+    raise FileNotFoundError(
+        f"Cropped video directory not found: {jpg_video_dir}. Run 2_crop_RIAregion.py first."
+    )
 
 video_dir = get_random_unprocessed_video(jpg_video_dir, head_segmentation_dir)
 print(f"Processing video: {video_dir}")
@@ -239,9 +315,11 @@ frame_names.sort(key=lambda p: int(os.path.splitext(p)[0]))
 inference_state = predictor.init_state(video_path=video_dir)
 
 prompts = {}
-ann_frame_idx = 512
+ann_frame_idx = min(512, len(frame_names) - 1)
 ann_obj_id = 2
-points = np.array([[600, 400]], dtype=np.float32) #generic whole worm body prompt
+first_frame = cv2.imread(os.path.join(video_dir, frame_names[ann_frame_idx]))
+height, width = first_frame.shape[:2]
+points = np.array([[width // 2, height // 2]], dtype=np.float32) #generic whole worm body prompt
 labels = np.array([1], np.int32)
 prompts[ann_obj_id] = points, labels
 _, out_obj_ids, out_mask_logits = predictor.add_new_points(
@@ -263,6 +341,10 @@ plt.savefig("tstclick.png")
 plt.close()
 
 video_segments = {}
+video_segments[ann_frame_idx] = {
+    out_obj_id: (out_mask_logits[i] > 0.0).cpu().numpy()
+    for i, out_obj_id in enumerate(out_obj_ids)
+}
 for out_frame_idx, out_obj_ids, out_mask_logits in predictor.propagate_in_video(inference_state, start_frame_idx=ann_frame_idx, reverse=True):
     video_segments[out_frame_idx] = {
         out_obj_id: (out_mask_logits[i] > 0.0).cpu().numpy()
@@ -282,6 +364,7 @@ for frame_idx, frame_masks in video_segments.items():
 if all_ok:
     print("All frames contain valid masks for object 2")
 
-create_mask_video(video_dir, video_segments, "PATH_TO_OUTPUT_VIDEO.mp4", fps=10, alpha=0.98)
-output_filename = save_cleaned_segments_to_h5(video_segments, video_dir)
+overlay_path = os.path.join(head_segmentation_dir, os.path.basename(video_dir) + "_head_overlay.mp4")
+create_mask_video(video_dir, video_segments, overlay_path, fps=10, alpha=0.98)
+output_filename = save_cleaned_segments_to_h5(video_segments, video_dir, head_segmentation_dir)
 loaded_segments = load_cleaned_segments_from_h5(output_filename)

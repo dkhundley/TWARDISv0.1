@@ -6,6 +6,7 @@ from tqdm import tqdm
 import random
 import pandas as pd
 from scipy.ndimage import distance_transform_edt
+from pathlib import Path
 
 #region [functions]
 
@@ -30,15 +31,23 @@ def load_cleaned_segments_from_h5(filename):
     return cleaned_segments
 
 def get_random_unprocessed_video(cleaned_aligned_segments_dir, final_data_dir):
-    all_videos = [os.path.splitext(d)[0] for d in os.listdir(cleaned_aligned_segments_dir)]
+    all_videos = [
+        os.path.splitext(d)[0]
+        for d in os.listdir(cleaned_aligned_segments_dir)
+        if d.endswith("_riasegmentation.h5")
+    ]
+    if not all_videos:
+        raise ValueError(
+            f"No RIA segmentation files found in {cleaned_aligned_segments_dir}. Run 3_autoprompted_RIAsegmentation.py first."
+        )
+
     unprocessed_videos = [
         video for video in all_videos
-        if not any(video[:video.find('crop')] in f 
-                  for f in os.listdir(final_data_dir))
+        if not os.path.exists(os.path.join(final_data_dir, video + ".csv"))
     ]
     
     if not unprocessed_videos:
-        raise ValueError("All videos have been processed.")
+        raise ValueError("All segmentation files already have brightness CSV outputs.")
     
     return os.path.join(cleaned_aligned_segments_dir, random.choice(unprocessed_videos) + ".h5")
 
@@ -91,6 +100,8 @@ def load_image(frame_idx):
     Load a single frame image corresponding to the currently selected video.
     """
     video_basename = os.path.splitext(os.path.basename(filename))[0]
+    if video_basename.endswith("_riasegmentation"):
+        video_basename = video_basename[: -len("_riasegmentation")]
     image_folder = os.path.join(video_dir, video_basename)
     image_path = os.path.join(image_folder, f"{frame_idx:06d}.jpg")
     return cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
@@ -229,9 +240,20 @@ def save_brightness_and_side_data(df_wide_brightness_and_background, cleaned_seg
 
 #endregion [functions]
 
-segments_dir = 'PATH_TO_SEGMENTS_DIR'
-final_data_dir = 'OUTPUT_PATH_TO_FINAL_DATA_DIR'
-video_dir = 'PATH_TO_VIDEO_DIR'
+project_root = Path(__file__).resolve().parents[1]
+ria_base_dir = project_root / "images/processed-files/RIA_calcium_imaging"
+segments_dir = ria_base_dir / "segmentation_outputs"
+final_data_dir = ria_base_dir / "final_data"
+video_dir = ria_base_dir / "crop_outputs"
+
+for required_dir in [segments_dir, video_dir]:
+    if not required_dir.exists():
+        raise FileNotFoundError(f"Required directory not found: {required_dir}")
+final_data_dir.mkdir(parents=True, exist_ok=True)
+
+segments_dir = str(segments_dir)
+final_data_dir = str(final_data_dir)
+video_dir = str(video_dir)
 
 filename = get_random_unprocessed_video(segments_dir, final_data_dir)
 cleaned_segments = load_cleaned_segments_from_h5(filename)

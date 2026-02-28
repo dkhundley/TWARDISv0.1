@@ -11,6 +11,7 @@ import random
 import numpy.linalg as la
 import re
 import cv2
+from pathlib import Path
 
 #region [functions]
 
@@ -35,17 +36,23 @@ def load_cleaned_segments_from_h5(filename):
 
 def get_random_unprocessed_video(head_segmentation_dir, final_data_dir):
     all_videos = [f for f in os.listdir(head_segmentation_dir) if f.endswith("_headsegmentation.h5")]
+    if not all_videos:
+        raise ValueError(
+            f"No head segmentation files found in {head_segmentation_dir}. Run 5_head_segmentation.py first."
+        )
     
     processable_videos = []
     for video in all_videos:
         base_name = video.replace("_headsegmentation.h5", "")
-        final_data_base = base_name + "_crop_riasegmentation"        
-        if os.path.exists(os.path.join(final_data_dir, final_data_base + "_cleanedalignedsegments.csv")) and \
+        final_data_base = base_name + "_riasegmentation"
+        if os.path.exists(os.path.join(final_data_dir, final_data_base + ".csv")) and \
            not os.path.exists(os.path.join(final_data_dir, final_data_base + "_headangles.csv")):
             processable_videos.append(video)
     
     if not processable_videos:
-        raise ValueError("No videos found that need head angle processing.")
+        raise ValueError(
+            "No videos found that need head angle processing. Ensure step 4 has produced matching '*_riasegmentation.csv' files in final_data."
+        )
     
     return os.path.join(head_segmentation_dir, random.choice(processable_videos))
 
@@ -711,7 +718,7 @@ def decay_result(base_result, decay_factor, straight_threshold=3):
 
 def save_head_angles_with_side_correction(filename, results_df, final_data_dir):
     base_name = os.path.basename(filename).replace("_headsegmentation.h5", "")
-    final_data_base = base_name + "_crop_riasegmentation_cleanedalignedsegments"
+    final_data_base = base_name + "_riasegmentation"
 
     final_data_path = os.path.join(final_data_dir, final_data_base + ".csv")
     final_df = pd.read_csv(final_data_path)
@@ -748,10 +755,6 @@ def save_head_angles_with_side_correction(filename, results_df, final_data_dir):
     print(f"Final merged df shape: {merged_df.shape}")
     print(f"Final columns: {merged_df.columns.tolist()}")
 
-    if os.path.exists(final_data_path):
-        os.remove(final_data_path)
-        print(f"Deleted existing file: {final_data_path}")
-        
     return merged_df
 
 def create_layered_mask_video(image_dir, bottom_masks_dict, top_masks_dict, angles_df,
@@ -924,8 +927,17 @@ def create_layered_mask_video(image_dir, bottom_masks_dict, top_masks_dict, angl
 
 #endregion [functions]
 
-head_segmentation_dir = "PATH_TO_HEAD_SEGMENTATION_DIR"
-final_data_dir = "PATH_TO_OUTPUT_DATA_DIR"
+project_root = Path(__file__).resolve().parents[1]
+ria_base_dir = project_root / "images/processed-files/RIA_calcium_imaging"
+head_segmentation_dir = ria_base_dir / "head_segmentation_outputs"
+final_data_dir = ria_base_dir / "final_data"
+
+for required_dir in [head_segmentation_dir, final_data_dir]:
+    if not required_dir.exists():
+        raise FileNotFoundError(f"Required directory not found: {required_dir}")
+
+head_segmentation_dir = str(head_segmentation_dir)
+final_data_dir = str(final_data_dir)
 
 filename = get_random_unprocessed_video(head_segmentation_dir, final_data_dir)
 head_segments = load_cleaned_segments_from_h5(filename)

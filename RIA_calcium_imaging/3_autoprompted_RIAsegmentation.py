@@ -14,19 +14,82 @@ import time
 import cv2
 from scipy.ndimage import binary_dilation
 import tqdm
-sys.path.append("PATH_TO_CLONED_REPO/segment-anything-2")
 from sam2.build_sam import build_sam2_video_predictor
 import h5py
 import random
+from pathlib import Path
+from hydra.errors import MissingConfigException
+from hydra.utils import instantiate
+from omegaconf import OmegaConf
 
-torch.autocast(device_type="cuda", dtype=torch.bfloat16).__enter__()
-if torch.cuda.get_device_properties(0).major >= 8:
-    torch.backends.cuda.matmul.allow_tf32 = True
-    torch.backends.cudnn.allow_tf32 = True
+def get_compute_device():
+    if torch.cuda.is_available():
+        return "cuda"
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
 
-sam2_checkpoint = "./segment-anything-2/checkpoints/sam2_hiera_large.pt" #Path to SAM2 checkpoint
-model_cfg = "sam2_hiera_l.yaml" #Path to SAM2 model config
-predictor = build_sam2_video_predictor(model_cfg, sam2_checkpoint)
+
+def build_sam2_video_predictor_from_local_yaml(config_path, ckpt_path, device="cuda", mode="eval"):
+    cfg = OmegaConf.load(config_path)
+    cfg.model._target_ = "sam2.sam2_video_predictor.SAM2VideoPredictor"
+    OmegaConf.update(cfg, "model.sam_mask_decoder_extra_args.dynamic_multimask_via_stability", True)
+    OmegaConf.update(cfg, "model.sam_mask_decoder_extra_args.dynamic_multimask_stability_delta", 0.05)
+    OmegaConf.update(cfg, "model.sam_mask_decoder_extra_args.dynamic_multimask_stability_thresh", 0.98)
+    OmegaConf.update(cfg, "model.binarize_mask_from_pts_for_mem_enc", True)
+    OmegaConf.update(cfg, "model.fill_hole_area", 8)
+
+    model = instantiate(cfg.model, _recursive_=True)
+    state_dict = torch.load(ckpt_path, map_location="cpu", weights_only=True)["model"]
+    missing_keys, unexpected_keys = model.load_state_dict(state_dict)
+    if missing_keys or unexpected_keys:
+        raise RuntimeError(
+            f"Checkpoint load mismatch. Missing: {missing_keys}, Unexpected: {unexpected_keys}"
+        )
+    model = model.to(device)
+    if mode == "eval":
+        model.eval()
+    return model
+
+
+device = get_compute_device()
+if device == "cuda":
+    torch.autocast(device_type="cuda", dtype=torch.bfloat16).__enter__()
+    if torch.cuda.get_device_properties(0).major >= 8:
+        torch.backends.cuda.matmul.allow_tf32 = True
+        torch.backends.cudnn.allow_tf32 = True
+
+project_root = Path(__file__).resolve().parents[1]
+models_dir = project_root / "models"
+
+if (models_dir / "sam2_hiera_large.pt").exists():
+    sam2_checkpoint = str(models_dir / "sam2_hiera_large.pt")
+    model_cfg = "sam2_hiera_l.yaml"
+elif (models_dir / "sam2.1_hiera_large.pt").exists():
+    sam2_checkpoint = str(models_dir / "sam2.1_hiera_large.pt")
+    model_cfg = "sam2.1_hiera_l.yaml"
+else:
+    raise FileNotFoundError(
+        f"No large SAM checkpoint found in {models_dir}. Expected sam2_hiera_large.pt or sam2.1_hiera_large.pt"
+    )
+
+hydra_overrides_extra = [f"hydra.searchpath=[file://{models_dir.resolve().as_posix()}]"]
+try:
+    predictor = build_sam2_video_predictor(
+        model_cfg,
+        sam2_checkpoint,
+        device=device,
+        hydra_overrides_extra=hydra_overrides_extra,
+    )
+except MissingConfigException:
+    local_cfg_path = str(models_dir / model_cfg)
+    predictor = build_sam2_video_predictor_from_local_yaml(
+        config_path=local_cfg_path,
+        ckpt_path=sam2_checkpoint,
+        device=device,
+    )
+
+print(f"Using compute device: {device}")
 
 #region [functions]
 
@@ -521,7 +584,18 @@ def save_video_segments_to_h5(video_segments, video_dir, output_dir, frame_mappi
     return filtered_video_segments
 
 def get_random_unprocessed_video(crop_videos_dir, segmented_videos_dir):
-    all_videos = [d for d in os.listdir(crop_videos_dir) if os.path.isdir(os.path.join(crop_videos_dir, d))]
+    def has_jpg_frames(folder_path):
+        return any(
+            name.lower().endswith((".jpg", ".jpeg"))
+            for name in os.listdir(folder_path)
+        )
+
+    all_videos = [
+        d
+        for d in os.listdir(crop_videos_dir)
+        if os.path.isdir(os.path.join(crop_videos_dir, d))
+        and has_jpg_frames(os.path.join(crop_videos_dir, d))
+    ]
     unprocessed_videos = [
         video for video in all_videos
         if not os.path.exists(os.path.join(segmented_videos_dir, video + "_riasegmentation.h5"))
@@ -608,14 +682,29 @@ def modify_prompt(frame_number, frame_mapping, prompt_data_file, new_prompts):
 
 #endregion [functions]
 
-crop_videos_dir = 'PATH_TO_CROPPED_VIDEO_DIR'
-segmented_videos_dir = 'PATH_TO_SEGMENTED_VIDEO_DIR'
+ria_base_dir = project_root / "images/processed-files/RIA_calcium_imaging"
+crop_videos_dir = ria_base_dir / "crop_outputs"
+segmented_videos_dir = ria_base_dir / "segmentation_outputs"
+segmented_videos_dir.mkdir(parents=True, exist_ok=True)
+
+prompt_dir = project_root / "RIA_calcium_imaging/prompt_frames"
+prompt_data_file = project_root / "RIA_calcium_imaging/prompt_data.json"
+
+if not crop_videos_dir.exists():
+    raise FileNotFoundError(
+        f"Cropped videos directory not found: {crop_videos_dir}. Run 2_crop_RIAregion.py first."
+    )
+if not prompt_dir.exists():
+    raise FileNotFoundError(
+        f"Prompt frames directory not found: {prompt_dir}. Add prompt frame JPGs before running segmentation."
+    )
+if not prompt_data_file.exists():
+    raise FileNotFoundError(
+        f"Prompt data file not found: {prompt_data_file}. Add prompt_data.json before running segmentation."
+    )
 
 video_dir = get_random_unprocessed_video(crop_videos_dir, segmented_videos_dir)
 print(f"Processing video: {video_dir}")
-
-prompt_dir = 'PATH_TO_PROMPT_FRAMES_DIR'
-prompt_data_file = 'PATH_TO_PROMPT_DATA_FILE'
 
 # Add prompt frames to the video directory
 frame_mapping = add_prompt_frames_to_video(video_dir, prompt_dir)
@@ -662,10 +751,10 @@ create_mask_overlay_video(
     video_dir,
     frame_names,
     video_segments,
-    output_video_path="PATH_TO_OUTPUT_VIDEO.mp4",
+    output_video_path=os.path.join(segmented_videos_dir, os.path.basename(video_dir) + "_overlay.mp4"),
     fps=10,
     alpha=0.99
 )
 
-output_dir = 'PATH_TO_OUTPUT_DIR'
+output_dir = segmented_videos_dir
 filtered_video_segments = save_video_segments_to_h5(video_segments, video_dir, output_dir, frame_mapping)

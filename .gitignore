@@ -184,3 +184,5 @@ terraform.tfstate
 *.png
 sam2/
 *.pt
+*.mp4
+*.h5

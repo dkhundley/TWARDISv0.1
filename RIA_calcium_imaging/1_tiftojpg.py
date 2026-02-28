@@ -268,7 +268,7 @@ def process_random_unprocessed_video(video_files_dir, output_dir):
     return random_video
 
 
-video_files = "PATH_TO_VIDEO_FILES_DIR"
-save_jpg_dir = "PATH_TO_SAVE_JPG_DIR"
+video_files = "../images/raw-files"
+save_jpg_dir = "../images/processed-files/RIA_calcium_imaging"
 
 vid = process_random_unprocessed_video(video_files, save_jpg_dir)

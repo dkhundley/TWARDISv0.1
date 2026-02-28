@@ -182,3 +182,5 @@ terraform.tfstate
 *.jpg
 *.jpeg
 *.png
+sam2/
+*.pt

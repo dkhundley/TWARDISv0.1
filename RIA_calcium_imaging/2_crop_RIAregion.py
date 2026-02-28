@@ -3,7 +3,6 @@ This script generates a cropped video around the RIA region.
 """
 import os
 import sys
-sys.path.append("PATH_TO_CLONED_REPO/segment-anything-2")
 from PIL import Image
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,15 +12,26 @@ from tqdm import tqdm
 import cv2
 import random
 
-torch.autocast(device_type="cuda", dtype=torch.bfloat16).__enter__()
-if torch.cuda.get_device_properties(0).major >= 8:
-    torch.backends.cuda.matmul.allow_tf32 = True
-    torch.backends.cudnn.allow_tf32 = True
+def get_compute_device():
+    if torch.cuda.is_available():
+        return "cuda"
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
+device = get_compute_device()
+if device == "cuda":
+    torch.autocast(device_type="cuda", dtype=torch.bfloat16).__enter__()
+    if torch.cuda.get_device_properties(0).major >= 8:
+        torch.backends.cuda.matmul.allow_tf32 = True
+        torch.backends.cudnn.allow_tf32 = True
 
 from sam2.build_sam import build_sam2_video_predictor
-sam2_checkpoint = "./segment-anything-2/checkpoints/sam2_hiera_large.pt" #Path to SAM2 checkpoint
-model_cfg = "sam2_hiera_l.yaml" #Path to SAM2 model config
-predictor = build_sam2_video_predictor(model_cfg, sam2_checkpoint)
+sam2_checkpoint = "../models/sam2_hiera_large.pt" #Path to SAM2 checkpoint
+model_cfg = "../models/sam2_hiera_l.yaml" #Path to SAM2 model config
+predictor = build_sam2_video_predictor(model_cfg, sam2_checkpoint, device=device)
+print(f"Using compute device: {device}")
 
 
 def show_mask(mask, ax, obj_id=None, random_color=False):
@@ -121,8 +131,8 @@ def process_frames_fixed_crop(input_folder, output_folder, video_segments, origi
 
 
 
-parent_video_dir = 'PATH_TO_VIDEO_FILES_DIR'
-crop_dir = 'PATH_TO_SAVE_CROPPED_VIDEOS_DIR'
+parent_video_dir = '../images/raw-files/RIA_calcium_imaging'
+crop_dir = '../images/raw-files/RIA_calcium_imaging'
 
 random_video_dir = get_random_unprocessed_video(parent_video_dir, crop_dir)
 print(f"Processing video: {random_video_dir}")
@@ -196,7 +206,7 @@ print_results(low_detection_masks, "having 200 or fewer true elements")
 print_results(high_detection_masks, "having 5000 or more true elements")
 
 
-output_folder = os.path.join(os.path.dirname(crop_dir), os.path.basename(random_video_dir) + "_crop")
+output_folder = os.path.join(crop_dir, os.path.basename(random_video_dir) + "_crop")
 first_frame = cv2.imread(os.path.join(random_video_dir, frame_names[0]))
 original_size = first_frame.shape[:2]
 

@@ -8,5 +8,6 @@ dependencies = [
     "matplotlib>=3.10.8",
     "opencv-python>=4.13.0.92",
     "tifffile>=2026.2.24",
+    "transformers>=4.57.1",
     "tqdm>=4.67.3",
 ]

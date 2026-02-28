@@ -62,12 +62,12 @@ Everything else is useful support, but those six explain most of what the pipeli
 ## About the Code
 In this section, we'll break down what each respective directory does with a plain English explanation.
 
-### RIA Calcium Imaging (`/RIA_calcium_imaging`)
+### <font color="#0B7285">RIA Calcium Imaging (`/RIA_calcium_imaging`)</font>
 At a high level, this folder is one full pipeline for turning raw imaging videos into biologically useful measurements. The flow is: (1) convert source files into SAM-friendly frame images, (2) crop to the RIA region so the model focuses on the right area, (3) run segmentation of the key compartments, (4) extract brightness/orientation values from those segmentations, (5) segment the head/body region for posture analysis, and then (6) compute head-angle dynamics over time. So conceptually, it goes from **raw pixels → clean segmentations → quantitative neuroscience features**.
 
 
 
-#### 1. Preparing the files to work with Meta's SAM model. (`1_tiftojpg.py`)
+#### <font color="#0B7285">1. Preparing the files to work with Meta's SAM model. (`1_tiftojpg.py`)</font>
 **General description**: This file processes through video or image files and prepares them for use with Meta's SAM model. This file expects that you already have these images / videos downloaded to your local machine. There is no offering for any sample data. This script generally expects that you are working with TIFF files, but it also does support a limited number of file types. The processed files will be output as JPG files.
 
 **Python dependencies**: The following Python libraries are used to support this script:
@@ -92,7 +92,7 @@ At a high level, this folder is one full pipeline for turning raw imaging videos
 
 
 
-#### 2. Cropping around the RIA region. (`2_crop_RIAregion.py`)
+#### <font color="#0B7285">2. Cropping around the RIA region. (`2_crop_RIAregion.py`)</font>
 **General description**: This script picks an unprocessed frame-folder, runs SAM2 with a generic RIA click prompt, propagates that mask through the video, and then creates a fixed-size crop around the detected region for every frame. In other words: this is the "zoom in on RIA" prep step before more detailed segmentation.
 
 **Python dependencies**:
@@ -118,7 +118,7 @@ At a high level, this folder is one full pipeline for turning raw imaging videos
 - Requires SAM2 model weights/checkpoints downloaded separately from this repo.
 - GPU/CUDA is strongly recommended for practical runtime.
 
-#### 3. Autoprompted compartment segmentation. (`3_autoprompted_RIAsegmentation.py`)
+#### <font color="#0B7285">3. Autoprompted compartment segmentation. (`3_autoprompted_RIAsegmentation.py`)</font>
 **General description**: This is the main RIA segmentation pipeline. It appends reusable prompt frames to each cropped video, injects object-specific click prompts (from a JSON prompt file), runs SAM2 propagation, performs QA/error checks (empty masks, oversized masks, overlaps, distance checks), optionally makes overlay videos for debugging, and finally saves compartment masks to compressed H5.
 
 **Python dependencies**:
@@ -144,7 +144,7 @@ At a high level, this folder is one full pipeline for turning raw imaging videos
 - Requires Meta SAM2 repository code and compatible model weights.
 - Depends on prompt JSON files being present and formatted as expected by this script.
 
-#### 4. Extracting brightness + orientation metadata. (`4_extract_RIAbrightness_and_orientation.py`)
+#### <font color="#0B7285">4. Extracting brightness + orientation metadata. (`4_extract_RIAbrightness_and_orientation.py`)</font>
 **General description**: This script loads segmented masks, samples background pixels, calculates per-frame brightness metrics (including background-corrected values and pixel counts), infers side/orientation from relative object centroids, and writes a wide-format CSV for downstream analysis.
 
 **Python dependencies**:
@@ -166,7 +166,7 @@ At a high level, this folder is one full pipeline for turning raw imaging videos
 **External dependencies**:
 - No additional third-party repo/model beyond local data products from earlier RIA steps.
 
-#### 5. Head segmentation for angle analysis. (`5_head_segmentation.py`)
+#### <font color="#0B7285">5. Head segmentation for angle analysis. (`5_head_segmentation.py`)</font>
 **General description**: This stage runs SAM2 on the worm head/body region using a generic point prompt, propagates masks across frames, does basic missing/empty-mask checks, and saves a dedicated head-segmentation H5 file (plus optional overlay video).
 
 **Python dependencies**:
@@ -189,7 +189,7 @@ At a high level, this folder is one full pipeline for turning raw imaging videos
 **External dependencies**:
 - Requires Meta SAM2 repository code and model checkpoints not bundled in this repo.
 
-#### 6. Head angle extraction + smoothing. (`6_extract_head_angle.py`)
+#### <font color="#0B7285">6. Head angle extraction + smoothing. (`6_extract_head_angle.py`)</font>
 **General description**: This script converts head masks to skeletons, computes per-frame head bend angles and bend-location metrics, smooths noisy spikes, interpolates/decays through bad frames, applies side-aware sign correction, and merges the output into the final per-video CSV.
 
 **Python dependencies**:
@@ -212,11 +212,11 @@ At a high level, this folder is one full pipeline for turning raw imaging videos
 **External dependencies**:
 - No extra third-party repository/model dependency; consumes outputs from earlier RIA scripts.
 
-### Single Worm Tracking (`/singleworm_tracking`)
+### <font color="#5F3DC4">Single Worm Tracking (`/singleworm_tracking`)</font>
 
 **General directory synopsis**: At a high level, this folder tracks one worm over time and turns movement into quantitative behavior features. The flow is: (1) convert videos into SAM-ready frames, (2) run segmentation with a full-frame pass plus a higher-definition pass, (3) extract shape/posture metrics from the cleaned masks, and then (4) analyze trajectory and movement state (forward/backward/stationary) over time. So conceptually, it goes from **raw crawling video → robust worm masks → posture + locomotion metrics**.
 
-#### 1. Video-to-frames conversion. (`1_videotoimg.py`)
+#### <font color="#5F3DC4">1. Video-to-frames conversion. (`1_videotoimg.py`)</font>
 **General description**: Similar to the RIA converter, but optimized for crawling videos and built to optionally process frames in parallel. It checks readability, handles frame sampling/resizing, reuses existing outputs when possible, and writes SAM-ready image folders.
 
 **Python dependencies**:
@@ -243,7 +243,7 @@ At a high level, this folder is one full pipeline for turning raw imaging videos
 - Optional CPU affinity behavior uses OS-level support (`os.sched_setaffinity`) where available.
 
 
-#### 2. Two-pass autoprompted segmentation (full-frame + HD). (`2_autoprompted_segmentation.py`)
+#### <font color="#5F3DC4">2. Two-pass autoprompted segmentation (full-frame + HD). (`2_autoprompted_segmentation.py`)</font>
 **General description**: This is a large, production-style segmentation workflow. It does full-frame SAM2 segmentation with reusable prompt pools, performs extensive quality checks and mask repair/interpolation for problematic frames, then runs a second high-definition crop/segmentation pass and saves final HD mask data.
 
 **Python dependencies**:
@@ -270,7 +270,7 @@ At a high level, this folder is one full pipeline for turning raw imaging videos
 - Requires Meta SAM2 repository code and downloaded checkpoints.
 - Depends on local prompt metadata files expected by this workflow.
 
-#### 3. Shape analysis from HD masks. (`3_shape_analysis.py`)
+#### <font color="#5F3DC4">3. Shape analysis from HD masks. (`3_shape_analysis.py`)</font>
 **General description**: This script takes HD segmentation outputs and computes a broad set of shape/bending metrics. It includes heavy skeleton cleanup logic (junction/self-touch fixes, endpoint ordering), interpolation/smoothing, spectral features, and rich visualization outputs before saving consolidated shape-analysis artifacts.
 
 **Python dependencies**:
@@ -293,7 +293,7 @@ At a high level, this folder is one full pipeline for turning raw imaging videos
 **External dependencies**:
 - No additional external repo/model requirement beyond segmentation outputs from earlier steps.
 
-#### 4. Trajectory + movement-state analysis. (`4_path_analysis.py`)
+#### <font color="#5F3DC4">4. Trajectory + movement-state analysis. (`4_path_analysis.py`)</font>
 **General description**: This script consumes shape-analysis outputs and computes movement trajectories, centroids, velocity-based motion states (forward/backward/stationary), head-tail correction passes, path metrics, plots, and optional labeled videos. Final per-video path-analysis files are saved for downstream stats.
 
 **Python dependencies**:
@@ -316,11 +316,11 @@ At a high level, this folder is one full pipeline for turning raw imaging videos
 **External dependencies**:
 - No additional third-party repo/model dependency for this analysis stage.
 
-### Droplet Swimming (`/droplet_swimming`)
+### <font color="#1C7ED6">Droplet Swimming (`/droplet_swimming`)</font>
 
 **General directory synopsis**: At a high level, this folder is the swim-analysis pipeline for droplet videos. The flow is: (1) convert video into frames, (2) run a full-frame segmentation pass to get initial worm locations, (3) run a high-definition crop/segmentation pass for cleaner masks, and then (4) compute swim-shape features like curvature, amplitude, wavelength, and temporal frequency trends. So conceptually, it goes from **raw swim video → refined masks → quantitative swimming kinematics**.
 
-#### 1. Video-to-frames conversion. (`1_videotoimg.py`)
+#### <font color="#1C7ED6">1. Video-to-frames conversion. (`1_videotoimg.py`)</font>
 **General description**: This is the droplet/swimming flavor of video preprocessing. It extracts frames (with optional resize and frame-rate downsampling), handles missing/extra frame bookkeeping, and outputs clean image folders for SAM2.
 
 **Python dependencies**:
@@ -338,7 +338,7 @@ At a high level, this folder is one full pipeline for turning raw imaging videos
 **External dependencies**:
 - No external repo/model dependency for this conversion step.
 
-#### 2. Full-frame SAM2 segmentation. (`2_fframe_segmentation.py`)
+#### <font color="#1C7ED6">2. Full-frame SAM2 segmentation. (`2_fframe_segmentation.py`)</font>
 **General description**: This pass appends a generic prompt frame, runs full-frame SAM2 propagation across the video, performs basic detection-quality checks (empty/too small/too large masks), removes the helper prompt frame, and saves frame-wise segmentation to pickle.
 
 **Python dependencies**:
@@ -360,7 +360,7 @@ At a high level, this folder is one full pipeline for turning raw imaging videos
 **External dependencies**:
 - Requires Meta SAM2 repository code and model checkpoints not included in this repo.
 
-#### 3. High-definition swim segmentation. (`3_swim_hdsegmentation.py`)
+#### <font color="#1C7ED6">3. High-definition swim segmentation. (`3_swim_hdsegmentation.py`)</font>
 **General description**: This stage uses the full-frame results to crop around the worm and run a higher-resolution segmentation pass. It supports an intermediate large-crop fallback pass when masks are empty, then finalizes HD masks and saves either intermediate pickle or final H5.
 
 **Python dependencies**:
@@ -384,7 +384,7 @@ At a high level, this folder is one full pipeline for turning raw imaging videos
 **External dependencies**:
 - Requires Meta SAM2 repository and downloaded checkpoints.
 
-#### 4. Swimming shape analysis. (`4_shape_analysis.py`)
+#### <font color="#1C7ED6">4. Swimming shape analysis. (`4_shape_analysis.py`)</font>
 **General description**: This script loads HD swim masks and computes morphology/kinematic descriptors (shape class, curvature, amplitude, wavelength, wave number, temporal frequency summaries, etc.). It includes skeleton repair logic for self-touching shapes and writes the final analysis package to H5.
 
 **Python dependencies**:
@@ -405,11 +405,11 @@ At a high level, this folder is one full pipeline for turning raw imaging videos
 **External dependencies**:
 - No additional external repo/model dependency for this post-segmentation analysis.
 
-### Multi-Worm Feature Extraction (`/multiworm_feature_extraction`)
+### <font color="#2B8A3E">Multi-Worm Feature Extraction (`/multiworm_feature_extraction`)</font>
 
 **General directory synopsis**: At a high level, this folder handles many worms in still images (rather than one worm in one video). The flow is: (1) convert microscope TIFF images into model-friendly JPGs, (2) generate candidate masks with SAM, classify each cutout as worm/not-worm, clean/merge valid worm masks, and then extract per-worm morphology metrics for downstream analysis. So conceptually, it goes from **raw multi-worm images → filtered worm detections → per-worm feature tables**.
 
-#### 1. TIFF to JPEG conversion. (`1_convert_images.py`)
+#### <font color="#2B8A3E">1. TIFF to JPEG conversion. (`1_convert_images.py`)</font>
 **General description**: This is a straightforward converter that walks a source directory tree, rescales 16-bit TIFF images to 8-bit, and mirrors the folder structure while saving JPEG outputs for downstream model processing.
 
 **Python dependencies**:
@@ -427,7 +427,7 @@ At a high level, this folder is one full pipeline for turning raw imaging videos
 **External dependencies**:
 - No third-party repository/model dependency for this conversion utility.
 
-#### 2. SAM cutouts + worm classifier + metrics extraction. (`2_extract_wormcutouts.py`)
+#### <font color="#2B8A3E">2. SAM cutouts + worm classifier + metrics extraction. (`2_extract_wormcutouts.py`)</font>
 **General description**: This is the large multi-worm pipeline. It uses SAM2 automatic mask generation, filters edge artifacts, creates mask cutouts, classifies each cutout with the fine-tuned ViT worm/not-worm model, merges/cleans accepted worm masks, extracts morphology metrics per worm, and saves cutouts + metrics outputs for each image.
 
 **Python dependencies**:

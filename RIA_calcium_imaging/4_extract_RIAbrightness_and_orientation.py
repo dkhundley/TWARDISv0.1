@@ -209,15 +209,28 @@ def get_centroid(mask):
 
 def get_relative_position(first_frame):
     """
-    Get the relative position of nrd vs the loop in the first frame to determine the orientation of the worm.
+    Get left/right orientation from available object masks in the first frame.
+    Uses object IDs 2 and 4 when available; otherwise falls back to the two
+    lowest numeric object IDs that have non-empty centroids.
     """
-    centroid2 = get_centroid(first_frame[2])
-    centroid4 = get_centroid(first_frame[4])
-    
-    if centroid2 is None or centroid4 is None:
-        return "One or both objects not found in frame"
-    
-    if centroid4[0] < centroid2[0]:
+    numeric_keys = [key for key in first_frame.keys() if isinstance(key, (int, np.integer))]
+
+    preferred_pair = (2, 4)
+    if all(key in first_frame for key in preferred_pair):
+        left_ref_id, right_ref_id = preferred_pair
+    else:
+        if len(numeric_keys) < 2:
+            return "unknown"
+        sorted_keys = sorted(numeric_keys)
+        left_ref_id, right_ref_id = sorted_keys[0], sorted_keys[1]
+
+    centroid_left_ref = get_centroid(first_frame[left_ref_id])
+    centroid_right_ref = get_centroid(first_frame[right_ref_id])
+
+    if centroid_left_ref is None or centroid_right_ref is None:
+        return "unknown"
+
+    if centroid_right_ref[0] < centroid_left_ref[0]:
         return "left"
     else:
         return "right"

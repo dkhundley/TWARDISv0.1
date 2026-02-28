@@ -249,13 +249,17 @@ def process_file(file_path, output_dir, force_reprocess=False):
 def process_random_unprocessed_video(video_files_dir, output_dir):
     video_files_dir = Path(video_files_dir)
     output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     all_videos = []
     for ext in get_supported_video_extensions() + get_supported_image_extensions():
         all_videos.extend(video_files_dir.glob(f"**/*{ext}"))
 
-    processed_videos = set(dir.name.split('-')[1] for dir in output_dir.iterdir() if dir.is_dir())
-    unprocessed_videos = [video for video in all_videos if video.stem not in processed_videos]
+    def is_processed(video_path):
+        expected_folder = output_dir / f"{video_path.parent.name}-{video_path.stem}"
+        return expected_folder.exists() and expected_folder.is_dir()
+
+    unprocessed_videos = [video for video in all_videos if not is_processed(video)]
 
     if not unprocessed_videos:
         print("All videos have been processed.")

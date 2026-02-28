@@ -7,8 +7,8 @@ from PIL import Image
 import numpy as np
 import tifffile
 
-src_dir = 'YOUR_DATA_DIR_PATH'
-dst_dir = 'YOUR_DST_DIR_PATH'
+src_dir = '../images/raw-images'
+dst_dir = '../images/processed-images/multiworm_feature_extraction'
 
 def convert_16bit_to_8bit(image):
     """Convert a 16-bit image to 8-bit using tifffile and proper scaling"""

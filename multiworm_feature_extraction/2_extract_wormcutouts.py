@@ -431,6 +431,8 @@ def is_on_edge(x, y, w, h, img_width, img_height):
         return True
     return False
 
+
+
 def get_valid_imaging_area(image, margin=5, max_iterations=100):
     """
     Find the actual microscope field of view in the image.
@@ -475,6 +477,8 @@ def get_valid_imaging_area(image, margin=5, max_iterations=100):
         valid_area_mask = eroded_mask
     
     return valid_area_mask > 0, True
+
+
 
 def get_nonedge_masks(img_path: Path, mask_generator, margin: int):
     image = cv2.imread(img_path)

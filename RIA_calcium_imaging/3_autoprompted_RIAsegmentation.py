@@ -682,7 +682,7 @@ def modify_prompt(frame_number, frame_mapping, prompt_data_file, new_prompts):
 
 #endregion [functions]
 
-ria_base_dir = project_root / "images/processed-files/RIA_calcium_imaging"
+ria_base_dir = project_root / "data/processed_files/RIA_calcium_imaging"
 crop_videos_dir = ria_base_dir / "crop_outputs"
 segmented_videos_dir = ria_base_dir / "segmentation_outputs"
 segmented_videos_dir.mkdir(parents=True, exist_ok=True)

@@ -76,7 +76,7 @@ def parse_args() -> argparse.Namespace:
 
 def ensure_directories(project_root: Path) -> Dict[str, Path]:
     ria_script_dir = project_root / "RIA_calcium_imaging"
-    base = project_root / "images/processed-files/RIA_calcium_imaging"
+    base = project_root / "data/processed_files/RIA_calcium_imaging"
     dirs = {
         "project_root": project_root,
         "ria_script_dir": ria_script_dir,
@@ -220,7 +220,7 @@ def print_user_summary(
     print(f"- head-angle CSV files:  {output_counts['head_angles_csv']}")
 
     print("\nOutput layout:")
-    print("- images/processed-files/RIA_calcium_imaging/")
+    print("- data/processed_files/RIA_calcium_imaging/")
     print("  - crop_outputs/")
     print("  - segmentation_outputs/")
     print("  - head_segmentation_outputs/")

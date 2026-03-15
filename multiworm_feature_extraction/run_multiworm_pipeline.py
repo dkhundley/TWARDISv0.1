@@ -102,12 +102,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--input-folder",
-        default="images/processed-files/multiworm_feature_extraction/converted_images",
+        default="data/processed_files/multiworm_feature_extraction/converted_images",
         help="Folder containing converted images for extraction step.",
     )
     parser.add_argument(
         "--output-base",
-        default="images/processed-files/multiworm_feature_extraction",
+        default="data/processed_files/multiworm_feature_extraction",
         help="Base output folder for extraction step outputs and run artifacts.",
     )
     parser.add_argument(
@@ -365,7 +365,7 @@ def run_step(
 
 
 def summarize_outputs(project_root: Path, output_base: Path) -> Dict[str, int]:
-    converted_base = resolve_path(project_root, "images/processed-files/multiworm_feature_extraction/converted_images")
+    converted_base = resolve_path(project_root, "data/processed_files/multiworm_feature_extraction/converted_images")
     metrics_dir = output_base / "metrics"
     cutouts_dir = output_base / "final_cutouts"
     noworms_file = output_base / "noworms.csv"
@@ -412,7 +412,7 @@ def print_user_summary(
     print(f"- noworm CSV rows:       {output_counts['noworm_rows']}")
 
     print("\nOutput layout:")
-    print("- images/processed-files/multiworm_feature_extraction/")
+    print("- data/processed_files/multiworm_feature_extraction/")
     print("  - temp_cutouts/")
     print("  - final_cutouts/")
     print("  - metrics/")
@@ -445,6 +445,7 @@ def write_manifest(
 
 
 def main() -> int:
+    # Parsing the args
     args = parse_args()
 
     if args.cycles < 1:

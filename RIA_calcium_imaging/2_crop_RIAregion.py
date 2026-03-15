@@ -207,8 +207,8 @@ def process_frames_fixed_crop(input_folder, output_folder, video_segments, origi
 
 
 default_parent_candidates = [
-    project_root / "images/processed-files/RIA_calcium_imaging",
-    project_root / "images/raw-files/RIA_calcium_imaging",
+    project_root / "data/processed_files/RIA_calcium_imaging",
+    project_root / "data/raw_files/RIA_calcium_imaging",
 ]
 parent_video_dir = next((p for p in default_parent_candidates if p.exists()), default_parent_candidates[0])
 crop_dir = parent_video_dir / "crop_outputs"

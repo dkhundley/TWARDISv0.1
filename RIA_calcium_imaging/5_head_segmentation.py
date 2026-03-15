@@ -294,7 +294,7 @@ def compare_cleaned_segments(original, loaded):
 #endregion [functions]
 
 
-ria_base_dir = project_root / "images/processed-files/RIA_calcium_imaging"
+ria_base_dir = project_root / "data/processed_files/RIA_calcium_imaging"
 jpg_video_dir = ria_base_dir / "crop_outputs"
 head_segmentation_dir = ria_base_dir / "head_segmentation_outputs"
 head_segmentation_dir.mkdir(parents=True, exist_ok=True)

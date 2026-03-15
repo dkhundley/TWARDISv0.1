@@ -928,7 +928,7 @@ def create_layered_mask_video(image_dir, bottom_masks_dict, top_masks_dict, angl
 #endregion [functions]
 
 project_root = Path(__file__).resolve().parents[1]
-ria_base_dir = project_root / "images/processed-files/RIA_calcium_imaging"
+ria_base_dir = project_root / "data/processed_files/RIA_calcium_imaging"
 head_segmentation_dir = ria_base_dir / "head_segmentation_outputs"
 final_data_dir = ria_base_dir / "final_data"
 

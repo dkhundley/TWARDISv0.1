@@ -254,7 +254,7 @@ def save_brightness_and_side_data(df_wide_brightness_and_background, cleaned_seg
 #endregion [functions]
 
 project_root = Path(__file__).resolve().parents[1]
-ria_base_dir = project_root / "images/processed-files/RIA_calcium_imaging"
+ria_base_dir = project_root / "data/processed_files/RIA_calcium_imaging"
 segments_dir = ria_base_dir / "segmentation_outputs"
 final_data_dir = ria_base_dir / "final_data"
 video_dir = ria_base_dir / "crop_outputs"

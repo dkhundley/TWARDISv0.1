@@ -62,12 +62,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--input-folder",
-        default="images/processed-files/multiworm_feature_extraction/converted_images",
+        default="data/processed_files/multiworm_feature_extraction/converted_images",
         help="Folder containing converted image files to process.",
     )
     parser.add_argument(
         "--output-base",
-        default="images/processed-files/multiworm_feature_extraction",
+        default="data/processed_files/multiworm_feature_extraction",
         help="Base folder where outputs and run artifacts are written.",
     )
     parser.add_argument(

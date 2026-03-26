@@ -22,6 +22,8 @@ dependencies = [
     "accelerate>=1.13.0",
     "safetensors>=0.7.0",
     "sam-2",
+    "h5py>=3.16.0",
+    "pandas>=3.0.1",
 ]
 
 [tool.uv.sources]
